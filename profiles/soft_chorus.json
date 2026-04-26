@@ -1,0 +1,11 @@
+{
+    "name": "Soft Chorus",
+    "description": "Gentle chorus modulation",
+    "waveform": "Sine",
+    "frequency": 1200.0,
+    "amplitude": 0.5,
+    "modulation_type": "AM",
+    "modulation_depth": 0.3,
+    "carrier_frequency": 2400.0,
+    "sample_rate": 44100
+}

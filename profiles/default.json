@@ -1,0 +1,11 @@
+{
+    "name": "Default",
+    "description": "Default modulator profile",
+    "waveform": "Sine",
+    "frequency": 440.0,
+    "amplitude": 0.8,
+    "modulation_type": "AM",
+    "modulation_depth": 0.5,
+    "carrier_frequency": 1000.0,
+    "sample_rate": 44100
+}

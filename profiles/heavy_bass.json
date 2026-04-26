@@ -1,0 +1,11 @@
+{
+    "name": "Heavy Bass",
+    "description": "Deep bass modulation profile",
+    "waveform": "Square",
+    "frequency": 80.0,
+    "amplitude": 1.0,
+    "modulation_type": "FM",
+    "modulation_depth": 0.9,
+    "carrier_frequency": 200.0,
+    "sample_rate": 44100
+}

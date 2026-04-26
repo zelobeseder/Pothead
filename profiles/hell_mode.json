@@ -1,0 +1,11 @@
+{
+    "name": "Hell Mode",
+    "description": "Maximum distortion — pure hell",
+    "waveform": "Sawtooth",
+    "frequency": 666.0,
+    "amplitude": 1.0,
+    "modulation_type": "FM",
+    "modulation_depth": 1.0,
+    "carrier_frequency": 666.0,
+    "sample_rate": 44100
+}
