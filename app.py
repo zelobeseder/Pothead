@@ -177,23 +177,6 @@ def toggle_dropdown():
     dropdown_open = True
 
 
-MAX_PROCESSES = 7
-
-
-def _on_var_changed(name, *_):
-    """Block checking a box when MAX_PROCESSES are already selected."""
-    var = process_vars[name]
-    if var.get():
-        selected = sum(1 for v in process_vars.values() if v.get())
-        if selected > MAX_PROCESSES:
-            var.set(False)
-            messagebox.showwarning(
-                "Limit reached",
-                f"Maximum {MAX_PROCESSES} processes allowed simultaneously.\n"
-                "Deselect one before adding another."
-            )
-
-
 def on_calculate():
     global last_data
 
@@ -204,13 +187,6 @@ def on_calculate():
 
     if not selected_processes:
         messagebox.showwarning("Warning", "Select at least one process.")
-        return
-
-    if len(selected_processes) > MAX_PROCESSES:
-        messagebox.showwarning(
-            "Too many processes",
-            f"Maximum {MAX_PROCESSES} processes allowed. Please deselect some."
-        )
         return
 
     try:
@@ -391,7 +367,6 @@ process_btn.pack(side="left", padx=(0, 8), pady=8)
 for proc in ALL_PROCESSES:
     var = tk.BooleanVar(value=False)
     process_vars[proc["name"]] = var
-    var.trace_add("write", lambda *_, n=proc["name"]: _on_var_changed(n))
 
     chk = tk.Checkbutton(
         dropdown_frame,
