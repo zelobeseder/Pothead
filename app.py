@@ -27,15 +27,21 @@ from profiles import PROFILES
 
 
 def _load_processes_from_file(filepath):
-    spec = importlib.util.spec_from_file_location("_user_processes", filepath)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod.ALL_PROCESSES
+    try:
+        spec = importlib.util.spec_from_file_location("_user_processes", filepath)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        if not hasattr(mod, "ALL_PROCESSES"):
+            raise AttributeError(f"No ALL_PROCESSES found in {filepath}")
+        return mod.ALL_PROCESSES
+    except (SyntaxError, AttributeError, Exception) as e:
+        messagebox.showerror("Error loading processes", str(e))
+        raise
 
 
 PROCESSES_FILE = os.path.expanduser("~/processes.py")
 
-ALL_PROCESSES = None  # resolved after root is created
+ALL_PROCESSES = None  # resolved in _resolve_processes() after root is created
 
 canvas_widget = None
 last_data = None
@@ -262,8 +268,16 @@ def _resolve_processes():
     if path:
         ALL_PROCESSES = _load_processes_from_file(path)
     else:
-        from processes import ALL_PROCESSES as _builtin
-        ALL_PROCESSES = _builtin
+        try:
+            from processes import ALL_PROCESSES as _builtin
+            ALL_PROCESSES = _builtin
+        except ImportError:
+            messagebox.showerror(
+                "No processes file",
+                "No processes file was selected and no built-in processes.py was found.\n"
+                "The application will start with an empty process list."
+            )
+            ALL_PROCESSES = []
 
 _resolve_processes()
 
