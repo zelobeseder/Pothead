@@ -137,7 +137,7 @@ def toggle_dropdown():
     global dropdown_open
 
     if dropdown_open:
-        dropdown_frame.place_forget()
+        dropdown_outer.place_forget()
         dropdown_open = False
         return
 
@@ -150,21 +150,48 @@ def toggle_dropdown():
     btn_x = process_btn.winfo_rootx() - root_x
     btn_y = process_btn.winfo_rooty() - root_y
 
-    # реальная высота dropdown после наполнения чекбоксами
-    dropdown_h = dropdown_frame.winfo_reqheight()
-    dropdown_w = dropdown_frame.winfo_reqwidth()
+    content_h = dropdown_frame.winfo_reqheight()
+    content_w = dropdown_frame.winfo_reqwidth() + 2  # +2 for border
+
+    need_scroll = content_h > DROPDOWN_MAX_H
+    panel_h = DROPDOWN_MAX_H if need_scroll else content_h
+
+    if need_scroll:
+        dropdown_scrollbar.pack(side="right", fill="y")
+    else:
+        dropdown_scrollbar.pack_forget()
+
+    dropdown_canvas.pack(side="left", fill="both", expand=True)
+    dropdown_canvas.configure(width=content_w, height=panel_h)
 
     # ставим над кнопкой
     x = btn_x
-    y = btn_y - dropdown_h - 6
+    y = btn_y - panel_h - 6
 
     # страховка: если ушло слишком высоко, прижимаем к верхнему краю окна
     if y < 8:
         y = 8
 
-    dropdown_frame.place(x=x, y=y, width=dropdown_w, height=dropdown_h)
-    dropdown_frame.lift()
+    dropdown_outer.place(x=x, y=y, width=content_w + (16 if need_scroll else 0), height=panel_h)
+    dropdown_outer.lift()
     dropdown_open = True
+
+
+MAX_PROCESSES = 7
+
+
+def _on_var_changed(name, *_):
+    """Block checking a box when MAX_PROCESSES are already selected."""
+    var = process_vars[name]
+    if var.get():
+        selected = sum(1 for v in process_vars.values() if v.get())
+        if selected > MAX_PROCESSES:
+            var.set(False)
+            messagebox.showwarning(
+                "Limit reached",
+                f"Maximum {MAX_PROCESSES} processes allowed simultaneously.\n"
+                "Deselect one before adding another."
+            )
 
 
 def on_calculate():
@@ -177,6 +204,13 @@ def on_calculate():
 
     if not selected_processes:
         messagebox.showwarning("Warning", "Select at least one process.")
+        return
+
+    if len(selected_processes) > MAX_PROCESSES:
+        messagebox.showwarning(
+            "Too many processes",
+            f"Maximum {MAX_PROCESSES} processes allowed. Please deselect some."
+        )
         return
 
     try:
@@ -318,8 +352,33 @@ control_frame = tk.Frame(root, bg=BG, height=56)
 control_frame.pack(fill="x", padx=14, pady=(0, 14))
 control_frame.pack_propagate(False)
 
-dropdown_frame = tk.Frame(root, bg=BG, bd=1, relief="solid")
-dropdown_frame.place_forget()
+dropdown_outer = tk.Frame(root, bg=BG, bd=1, relief="solid")
+dropdown_outer.place_forget()
+
+DROPDOWN_MAX_H = 300
+DROPDOWN_ITEM_H = 28  # approx per checkbox row
+
+dropdown_canvas = tk.Canvas(dropdown_outer, bg=BG, highlightthickness=0)
+dropdown_scrollbar = tk.Scrollbar(
+    dropdown_outer, orient="vertical", command=dropdown_canvas.yview
+)
+dropdown_frame = tk.Frame(dropdown_canvas, bg=BG)
+
+dropdown_frame_id = dropdown_canvas.create_window((0, 0), window=dropdown_frame, anchor="nw")
+
+dropdown_canvas.configure(yscrollcommand=dropdown_scrollbar.set)
+
+def _on_dropdown_frame_configure(event):
+    dropdown_canvas.configure(scrollregion=dropdown_canvas.bbox("all"))
+    w = dropdown_frame.winfo_reqwidth()
+    dropdown_canvas.itemconfig(dropdown_frame_id, width=w)
+
+dropdown_frame.bind("<Configure>", _on_dropdown_frame_configure)
+
+def _on_mousewheel(event):
+    dropdown_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+dropdown_canvas.bind_all("<MouseWheel>", _on_mousewheel)
 
 process_btn = tk.Button(
     control_frame,
@@ -332,6 +391,7 @@ process_btn.pack(side="left", padx=(0, 8), pady=8)
 for proc in ALL_PROCESSES:
     var = tk.BooleanVar(value=False)
     process_vars[proc["name"]] = var
+    var.trace_add("write", lambda *_, n=proc["name"]: _on_var_changed(n))
 
     chk = tk.Checkbutton(
         dropdown_frame,
