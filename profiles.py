@@ -75,7 +75,7 @@ def visual_amplitude(mass, profile, min_mass=None, max_mass=None):
     elif method == "logarithmic":
         # Логарифмическая формула (мягкий контраст)
         log_weight = profile.get("log_weight", 0.5)
-        amp = scale * (log_weight * mass + (1 - log_weight) * log(mass + 1))  # Использован импортированный log
+        amp = scale * (log_weight * mass + (1 - log_weight) * np.log(mass + 1))
 
     elif method == "dynamic":
         # Динамический скейл на основе диапазона (адаптивный)
@@ -94,7 +94,6 @@ def visual_amplitude(mass, profile, min_mass=None, max_mass=None):
 
     return np.clip(amp, min_amp, max_amp)
 
-print(PROFILES.keys())
 
 
 # Альтернативные формулы в комментах для экспериментов:

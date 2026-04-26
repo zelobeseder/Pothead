@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 CORE_NAME = "BETA"
 CORE_VERSION = "1.1-beta"
 
+MAX_CONCURRENT = 7  # hard facilities limit: no more than 7 processes active simultaneously
+
 DEFAULT_CONFIG = {
     "cycle_length": 320,
     "resolution": 2400,
@@ -105,13 +107,14 @@ def score_start(candidate_process, candidate_start, scheduled_processes, config,
     t1 = candidate_start + candidate_process["life"]
 
     if t1 > config["cycle_length"]:
-        return np.inf, np.inf, np.inf, np.inf
+        return np.inf, np.inf, np.inf, np.inf, np.inf
 
     times = np.arange(t0, t1 + dt, dt)
 
     loads = []
     overload_sum = 0.0
     overload_points = 0
+    concurrent_violation_points = 0
 
     for t in times:
         load = total_load_at_time(t, scheduled_processes + [temp], config)
@@ -122,50 +125,59 @@ def score_start(candidate_process, candidate_start, scheduled_processes, config,
             overload_sum += (load - cap)
             overload_points += 1
 
+        # count processes (already scheduled + candidate) active at this moment
+        active_count = sum(
+            1 for p in scheduled_processes
+            if p["start"] <= t <= p["start"] + p["life"]
+        ) + 1  # +1 for the candidate itself
+        if active_count > MAX_CONCURRENT:
+            concurrent_violation_points += (active_count - MAX_CONCURRENT)
+
     loads = np.array(loads)
     peak_load = float(loads.max())
     mean_load = float(loads.mean())
 
     overload_penalty = overload_sum * 10000.0
+    concurrent_penalty = concurrent_violation_points * 10000.0
     urgency = candidate_process.get("urgency", 0.0)
     delay_penalty = urgency * candidate_start * 20.0
 
-    score = overload_penalty + peak_load * 100.0 + mean_load + delay_penalty
-    return score, peak_load, mean_load, overload_points
+    score = overload_penalty + concurrent_penalty + peak_load * 100.0 + mean_load + delay_penalty
+    return score, peak_load, mean_load, overload_points, concurrent_violation_points
 
 
 def find_best_start(candidate_process, scheduled_processes, config, step=1):
     latest_start = int(config["cycle_length"] - candidate_process["life"])
 
     if latest_start < 0:
-        score, peak, mean, overload_points = score_start(candidate_process, 0, scheduled_processes, config)
+        score, peak, mean, overload_points, concurrent_points = score_start(candidate_process, 0, scheduled_processes, config)
         return 0, score, peak, mean
 
     safe_candidates = []
     unsafe_best = None
 
     for start in range(0, int(latest_start) + 1, int(step)):
-        score, peak, mean, overload_points = score_start(
+        score, peak, mean, overload_points, concurrent_points = score_start(
             candidate_process, start, scheduled_processes, config
         )
 
-        row = (start, score, peak, mean, overload_points)
+        row = (start, score, peak, mean, overload_points, concurrent_points)
 
-        if overload_points == 0:
+        if overload_points == 0 and concurrent_points == 0:
             safe_candidates.append(row)
 
         if unsafe_best is None or score < unsafe_best[1]:
             unsafe_best = row
 
     if safe_candidates:
-        start, score, peak, mean, _ = safe_candidates[0]
+        start, score, peak, mean, _, _ = safe_candidates[0]
         return start, score, peak, mean
 
     if unsafe_best is not None:
-        start, score, peak, mean, _ = unsafe_best
+        start, score, peak, mean, _, _ = unsafe_best
         return start, score, peak, mean
 
-    score, peak, mean, _ = score_start(candidate_process, 0, scheduled_processes, config)
+    score, peak, mean, _, _ = score_start(candidate_process, 0, scheduled_processes, config)
     return 0, score, peak, mean
 
 
@@ -205,6 +217,7 @@ def capacity_report(scheduled, config):
     max_active = 0
     worst_load = 0.0
     overloads = []
+    concurrent_violations = []
 
     for t in times:
         active = [
@@ -221,6 +234,9 @@ def capacity_report(scheduled, config):
         if load > capacity:
             overloads.append((t, len(active), round(load, 2), round(capacity, 2)))
 
+        if len(active) > MAX_CONCURRENT:
+            concurrent_violations.append((t, len(active)))
+
     return {
         "max_active": max_active,
         "peak_total_load": round(worst_load, 2),
@@ -228,6 +244,7 @@ def capacity_report(scheduled, config):
         "boost_power": config["boost_power"],
         "environment_load": config["environment_load"],
         "overloads": overloads,
+        "concurrent_violations": concurrent_violations,
     }
 
 
