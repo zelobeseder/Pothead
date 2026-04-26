@@ -10,7 +10,7 @@ CORE = os.getenv("CORE_MODULE", "scheduler_core")
 if CORE == "beta":
     import scheduler_core_beta as core
 else:
-    import Scheduler_core as core
+    import scheduler_core as core
 
 config = core.DEFAULT_CONFIG.copy()
 BG = config["bg_color"]
