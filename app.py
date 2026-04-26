@@ -10,7 +10,7 @@ CORE = os.getenv("CORE_MODULE", "scheduler_core")
 if CORE == "beta":
     import scheduler_core_beta as core
 else:
-    import scheduler_core as core
+    import Scheduler_core as core
 
 config = core.DEFAULT_CONFIG.copy()
 BG = config["bg_color"]
@@ -39,7 +39,7 @@ def _load_processes_from_file(filepath):
         raise
 
 
-PROCESSES_FILE = os.path.expanduser("~/processes.py")
+PROCESSES_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "processes.py")
 
 ALL_PROCESSES = None  # resolved in _resolve_processes() after root is created
 
