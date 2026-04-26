@@ -1,8 +1,10 @@
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import messagebox, filedialog
+from tkinter import ttk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 import os
+import importlib.util
 
 CORE = os.getenv("CORE_MODULE", "scheduler_core")
 if CORE == "beta":
@@ -21,7 +23,19 @@ run_scheduler = core.run_scheduler
 plot_schedule = core.plot_schedule
 
 from style import apply_style
-from processes import ALL_PROCESSES
+from profiles import PROFILES
+
+
+def _load_processes_from_file(filepath):
+    spec = importlib.util.spec_from_file_location("_user_processes", filepath)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod.ALL_PROCESSES
+
+
+PROCESSES_FILE = os.path.expanduser("~/processes.py")
+
+ALL_PROCESSES = None  # resolved after root is created
 
 canvas_widget = None
 last_data = None
@@ -29,11 +43,88 @@ process_vars = {}
 dropdown_open = False
 
 
-def show_about():
-    messagebox.showinfo(
-        "About",
-        APP_TITLE
-    )
+def show_help():
+    win = tk.Toplevel(root)
+    win.title("Help")
+    win.resizable(False, False)
+    win.configure(bg=BG)
+
+    notebook = ttk.Notebook(win)
+    notebook.pack(fill="both", expand=True, padx=10, pady=10)
+
+    # --- Tab 1: Profiles ---
+    profiles_tab = tk.Frame(notebook, bg=BG)
+    notebook.add(profiles_tab, text="Profiles")
+
+    tk.Label(
+        profiles_tab,
+        text="Visual profile:",
+        bg=BG, fg="#ffffff",
+        font=("Arial", 13)
+    ).pack(anchor="w", padx=12, pady=(12, 4))
+
+    profile_var = tk.StringVar(value=visual_profile)
+    for name in PROFILES:
+        rb = tk.Radiobutton(
+            profiles_tab,
+            text=name,
+            variable=profile_var,
+            value=name,
+            bg=BG, fg="#ffffff",
+            selectcolor=BG,
+            activebackground=BG,
+            font=("Arial", 12)
+        )
+        rb.pack(anchor="w", padx=24, pady=2)
+
+    def apply_profile():
+        global visual_profile
+        visual_profile = profile_var.get()
+        redraw_plot()
+        win.destroy()
+
+    tk.Button(
+        profiles_tab,
+        text="Apply",
+        command=apply_profile,
+        width=12
+    ).pack(pady=(10, 14))
+
+    # --- Tab 2: Service (hidden behind subtle label) ---
+    service_tab = tk.Frame(notebook, bg=BG)
+    notebook.add(service_tab, text="· · ·")
+
+    tk.Label(
+        service_tab,
+        text="Service functions",
+        bg=BG, fg="#888888",
+        font=("Arial", 12, "italic")
+    ).pack(pady=(16, 8))
+
+    def restart_app():
+        import sys
+        win.destroy()
+        root.destroy()
+        os.execv(sys.executable, [sys.executable] + sys.argv)
+
+    def clear_list():
+        for var in process_vars.values():
+            var.set(False)
+        win.destroy()
+
+    tk.Button(
+        service_tab,
+        text="Restart",
+        command=restart_app,
+        width=14
+    ).pack(pady=6)
+
+    tk.Button(
+        service_tab,
+        text="Clear list",
+        command=clear_list,
+        width=14
+    ).pack(pady=6)
 
 
 def toggle_dropdown():
@@ -154,6 +245,28 @@ root.geometry("920x660")
 root.configure(bg=BG)
 root.resizable(False, False)
 
+# --- STARTUP: resolve processes file ---
+def _resolve_processes():
+    global ALL_PROCESSES
+    if os.path.isfile(PROCESSES_FILE):
+        ALL_PROCESSES = _load_processes_from_file(PROCESSES_FILE)
+        return
+    messagebox.showinfo(
+        "Processes file not found",
+        f"File not found:\n{PROCESSES_FILE}\n\nPlease select your processes.py file."
+    )
+    path = filedialog.askopenfilename(
+        title="Select processes.py",
+        filetypes=[("Python files", "*.py"), ("All files", "*.*")]
+    )
+    if path:
+        ALL_PROCESSES = _load_processes_from_file(path)
+    else:
+        from processes import ALL_PROCESSES as _builtin
+        ALL_PROCESSES = _builtin
+
+_resolve_processes()
+
 # --- TOP: graph ---
 top_frame = tk.Frame(root, bg=BG, height=360)
 top_frame.pack(fill="both", expand=True, padx=14, pady=(14, 0))
@@ -229,7 +342,7 @@ footer_label.pack(side="left", expand=True)
 about_btn = tk.Button(
     control_frame,
     text="?",
-    command=show_about,
+    command=show_help,
     width=2
 )
 about_btn.pack(side="right", padx=10, pady=8)
