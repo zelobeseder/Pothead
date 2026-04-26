@@ -1,9 +1,10 @@
 """
 Hell Modulator — Main Application
-A signal modulator with profile management and real-time preview.
+A signal modulator with profile management and on-demand waveform preview.
 """
 
 import importlib
+import importlib.util
 import json
 import math
 import os
